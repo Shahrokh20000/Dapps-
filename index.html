@@ -1,0 +1,197 @@
+<html>
+<head>
+    <title>Token Locker</title>
+    <script src="https://cdn.jsdelivr.net/gh/ethereum/web3.js/dist/web3.min.js"></script>
+</head>
+<body>
+    <h1>Token Locker</h1>
+    <p>This is a simple dapp that interacts with the TokenLocker contract on the Rosster network.</p>
+    <button id="connect">Connect Wallet</button>
+    <div id="account"></div>
+    <div id="balance"></div>
+    <div id="status"></div>
+    <div id="deposit">
+        <label for="depositAmount">Enter the amount of RSTR tokens to deposit:</label>
+        <input type="number" id="depositAmount" min="0">
+        <button id="depositButton">Deposit</button>
+    </div>
+    <div id="withdraw">
+        <label for="withdrawAmount">Enter the amount of RSTR tokens to withdraw:</label>
+        <input type="number" id="withdrawAmount" min="0">
+        <button id="withdrawButton">Withdraw</button>
+    </div>
+    <script>
+        // Initialize web3
+        let web3;
+        if (window.ethereum) {
+            web3 = new Web3(window.ethereum);
+        } else {
+            alert("Please install MetaMask to use this dapp.");
+        }
+
+        // Set the Rosster network parameters
+        const networkId = 6339189;
+        const networkName = "Rosster";
+        const rpcUrl = "d.nazi-ger.tech/status";
+        const explorerUrl = "https://explorer.silknodes.io/testnet-dymension";
+        const currencySymbol = "RSTR";
+
+        // Set the contract parameters
+        const contractAddress = "0x4D64B7D1cA07180839F734f70eeb5b1Be4dAb2D2";
+        const contractAbi = [
+            {
+                "inputs": [],
+                "name": "deposit",
+                "outputs": [],
+                "stateMutability": "payable",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "amount",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "withdraw",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            }
+        ];
+
+        // Create a contract instance
+        let contract = new web3.eth.Contract(contractAbi, contractAddress);
+
+        // Get the HTML elements
+        let connectButton = document.getElementById("connect");
+        let accountDiv = document.getElementById("account");
+        let balanceDiv = document.getElementById("balance");
+        let statusDiv = document.getElementById("status");
+        let depositDiv = document.getElementById("deposit");
+        let depositAmount = document.getElementById("depositAmount");
+        let depositButton = document.getElementById("depositButton");
+        let withdrawDiv = document.getElementById("withdraw");
+        let withdrawAmount = document.getElementById("withdrawAmount");
+        let withdrawButton = document.getElementById("withdrawButton");
+
+        // Hide the deposit and withdraw divs initially
+        depositDiv.style.display = "none";
+        withdrawDiv.style.display = "none";
+
+        // Define a function to connect the wallet
+        async function connectWallet() {
+            try {
+                // Request access to the user's accounts
+                let accounts = await ethereum.request({ method: "eth_requestAccounts" });
+                // Check if the user is on the Rosster network
+                let chainId = await web3.eth.getChainId();
+                if (chainId != networkId) {
+                    // Ask the user to switch to the Rosster network
+                    await ethereum.request({
+                        method: "wallet_switchEthereumChain",
+                        params: [{ chainId: "0x" + networkId.toString(16) }]
+                    });
+                }
+                // Get the user's account address
+                let account = accounts[0];
+                // Display the account address and a link to the explorer
+                accountDiv.innerHTML = "Account: <a href='" + explorerUrl + "/address/" + account + "' target='_blank'>" + account + "</a>";
+                // Display the deposit and withdraw divs
+                depositDiv.style.display = "block";
+                withdrawDiv.style.display = "block";
+                // Update the balance and the status
+                updateBalance(account);
+                updateStatus("Connected to " + networkName + " network.");
+            } catch (error) {
+                // Handle any errors
+                console.error(error);
+                updateStatus(error.message);
+            }
+        }
+
+        // Define a function to update the balance
+        async function updateBalance(account) {
+            try {
+                // Get the balance of the account in wei
+                let balance = await web3.eth.getBalance(account);
+                // Convert the balance to ether and display it
+                balance = web3.utils.fromWei(balance, "ether");
+                balanceDiv.innerHTML = "Balance: " + balance + " " + currencySymbol;
+            } catch (error) {
+                // Handle any errors
+                console.error(error);
+                updateStatus(error.message);
+            }
+        }
+
+        // Define a function to update the status
+        function updateStatus(message) {
+            // Display the message in the status div
+            statusDiv.innerHTML = message;
+        }
+
+        // Define a function to deposit tokens to the contract
+        async function depositTokens() {
+            try {
+                // Get the amount to deposit from the input
+                let amount = depositAmount.value;
+                // Validate the amount
+                if (amount == "" || amount <= 0) {
+                    alert("Please enter a valid amount.");
+                    return;
+                }
+                // Convert the amount to wei
+                amount = web3.utils.toWei(amount, "ether");
+                // Get the user's account address
+                let account = await web3.eth.getAccounts();
+                account = account[0];
+                // Send the deposit transaction to the contract
+                let tx = await contract.methods.deposit().send({ from: account, value: amount });
+                // Display the transaction hash and a link to the explorer
+                updateStatus("Transaction hash: <a href='" + explorerUrl + "/tx/" + tx.transactionHash + "' target='_blank'>" + tx.transactionHash + "</a>");
+                // Update the balance
+                updateBalance(account);
+            } catch (error) {
+                // Handle any errors
+                console.error(error);
+                updateStatus(error.message);
+            }
+        }
+
+        // Define a function to withdraw tokens from the contract
+        async function withdrawTokens() {
+            try {
+                // Get the amount to withdraw from the input
+                let amount = withdrawAmount.value;
+                // Validate the amount
+                if (amount == "" || amount <= 0) {
+                    alert("Please enter a valid amount.");
+                    return;
+                }
+                // Convert the amount to wei
+                amount = web3.utils.toWei(amount, "ether");
+                // Get the user's account address
+                let account = await web3.eth.getAccounts();
+                account = account[0];
+                // Send the withdraw transaction to the contract
+                let tx = await contract.methods.withdraw(amount).send({ from: account });
+                // Display the transaction hash and a link to the explorer
+                updateStatus("Transaction hash: <a href='" + explorerUrl + "/tx/" + tx.transactionHash + "' target='_blank'>" + tx.transactionHash + "</a>");
+                // Update the balance
+                updateBalance(account);
+            } catch (error) {
+                // Handle any errors
+                console.error(error);
+                updateStatus(error.message);
+            }
+        }
+
+        // Add event listeners to the buttons
+        connectButton.addEventListener("click", connectWallet);
+        depositButton.addEventListener("click", depositTokens);
+        withdrawButton.addEventListener("click", withdrawTokens);
+    </script>
+</body>
+</html>
